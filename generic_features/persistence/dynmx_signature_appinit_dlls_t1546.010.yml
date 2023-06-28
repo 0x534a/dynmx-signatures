@@ -1,0 +1,32 @@
+dynmx_signature:
+  meta:
+    name: appinit_dlls_persistence
+    title: AppInit DLLs Persistence
+    description: Detection of persistence based on Registry AppInit value
+    author: "0x534a"
+    version: 1.0
+    mitre_att&ck: "T1546.010"
+    references:
+      - https://attack.mitre.org/techniques/T1546/010/
+      - https://www.trustwave.com/en-us/resources/blogs/spiderlabs-blog/shining-the-spotlight-on-cherry-picker-pos-malware/
+    samples:
+      - a13b17f674ac30796dc1706b1e9ad37742f7cf2874dc034fa4bc1da86a46ed1a
+      - 8cc13efcced406c695f5985542b5245c70918b0f0e01a4de8fefb5c9c6225790
+  detection:
+    appinit_dlls_value:
+      - resource:
+        category: "registry"
+        access_operations: ["write"]
+        with:
+          - attribute: "location"
+            operation: "is"
+            value: "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_DLLs"
+    appinit_dlls_64_values:
+      - resource:
+        category: "registry"
+        access_operations: ["write"]
+        with:
+          - attribute: "location"
+            operation: "is"
+            value: "HKEY_LOCAL_MACHINE\\Software\\Wow6432Node\\Microsoft\\Windows NT\\CurrentVersion\\Windows\\AppInit_DLLs"
+  condition: appinit_dlls_value as simple or appinit_dlls_64_values as simple

@@ -1,0 +1,23 @@
+dynmx_signature:
+  meta:
+    name: winlogon_helper_dll_persistence
+    title: Winlogon Helper DLL Persistence
+    description: Detection of persistence based on Registry Winlogon keys
+    author: "0x534a"
+    version: 1.0
+    mitre_att&ck: "T1547.004"
+    references:
+      - https://attack.mitre.org/techniques/T1547/004/
+      - https://www.welivesecurity.com/wp-content/uploads/2018/01/ESET_Turla_Mosquito.pdf
+    samples:
+      - 278f2d92d21b8c8ab2eb38d5b9d4ae4f10cb600f4f6e043e75f689bdde1d9568
+  detection:
+    winlogon_values:
+      - resource:
+        category: "registry"
+        access_operations: ["write"]
+        with:
+          - attribute: "location"
+            operation: "regex"
+            value: "^(HKEY_CURRENT_USER|HKEY_LOCAL_MACHINE)\\\\Software\\\\Microsoft\\\\Windows NT\\\\CurrentVersion\\\\Winlogon\\\\(Notify|Userinit|Shell)"
+  condition: winlogon_values as simple

@@ -1,0 +1,73 @@
+dynmx_signature:
+  meta:
+    name: process_hollow
+    title: Process Hollowing
+    description: Detection of process hollowing malware feature
+    author: "0x534a"
+    version: 1.0
+    mitre_att&ck: "T1055.012"
+    references:
+      - https://attack.mitre.org/techniques/T1055/012/
+      - http://www.autosectools.com/process-hollowing.pdf
+      - https://www.andreafortuna.org/2017/10/09/understanding-process-hollowing/
+    samples:
+      - 66b08590b515498a974106c69c18be7695e22c4cbec659024c53c6ca90991d8f
+      - e30b76f9454a5fd3d11b5792ff93e56c52bf5dfba6ab375c3b96e17af562f5fc
+      - ff6d714899b26e779c49095e1843906420c160666b73219e02b7afbf23dfadff
+      - 9cfb4cf10394f514287a8dd677d349c316ac2c929a47f90ae5185bd73014549b
+      - c0832b1008aa0fc828654f9762e37bda019080cbdd92bd2453a05cfb3b79abb3
+  detection:
+    proc_hollow:
+      # Create legit process in suspended mode
+      - api_call: ["CreateProcess[AW]", "CreateProcessInternal[AW]"]
+        with:
+          - argument: "dwCreationFlags"
+            operation: "flag is set"
+            value: 0x4
+          - return_value: "return"
+            operation: "is not"
+            value: 0
+        store:
+          - name: "hProcess"
+            as: "proc_handle"
+          - name: "hThread"
+            as: "thread_handle"
+      # Injection of malicious code into memory of previously created process
+      - variant:
+        - path:
+          # Allocate memory with read, write, execute permission
+          - api_call: ["VirtualAllocEx", "VirtualAlloc", "(Nt|Zw)AllocateVirtualMemory"]
+            with:
+              - argument: ["hProcess", "ProcessHandle"]
+                operation: "is"
+                value: "$(proc_handle)"
+              - argument: ["flProtect", "Protect"]
+                operation: "is"
+                value: 0x40
+          - api_call: ["WriteProcessMemory"]
+            with:
+              - argument: "hProcess"
+                operation: "is"
+                value: "$(proc_handle)"
+          - api_call: ["SetThreadContext", "(Nt|Zw)SetContextThread"]
+            with:
+              - argument: "hThread"
+                operation: "is"
+                value: "$(thread_handle)"
+        - path:
+          # Map memory section with read, write, execute permission
+          - api_call: "(Nt|Zw)MapViewOfSection"
+            with:
+              - argument: "ProcessHandle"
+                operation: "is"
+                value: "$(proc_handle)"
+              - argument: "AccessProtection"
+                operation: "is"
+                value: 0x40
+      # Resume thread to run injected malicious code
+      - api_call: ["ResumeThread", "(Nt|Zw)ResumeThread"]
+        with:
+          - argument: ["hThread", "ThreadHandle"]
+            operation: "is"
+            value: "$(thread_handle)"
+  condition: proc_hollow as sequence

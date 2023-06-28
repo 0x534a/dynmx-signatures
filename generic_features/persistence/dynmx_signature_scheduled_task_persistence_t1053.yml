@@ -1,0 +1,98 @@
+dynmx_signature:
+  meta:
+    name: scheduled_task_persistence
+    title: Scheduled Task Persistence
+    description: Detection of persistence based on intalling a new scheduled task
+    author: "0x534a"
+    version: 1.0
+    mitre_att&ck: "T1053"
+    references:
+      - https://attack.mitre.org/techniques/T1053/
+      - https://docs.microsoft.com/en-us/windows/win32/api/_taskschd/
+      - https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-xp/bb490996(v=technet.10)?redirectedfrom=MSDN
+      - https://docs.microsoft.com/en-us/previous-versions/windows/it-pro/windows-xp/bb490866(v=technet.10)?redirectedfrom=MSDN
+    samples:
+      - 8062bb0e6d4d8ca8929ceef27b3be3f36ba20339edf9ac4b52748d0df43a4efb
+      - 55e2699721379352b0be2ea6b1c71257342d07efbe78c84d7257497f8f75e967
+      - f304c1e72c2be2e7781a590f1ab03b08b5e66f63536c62bbff78aed3be58eb8c
+  detection:
+    # Service installation with Task Scheduler API
+    scheduled_task_api:
+      - variant:
+        - path:
+          - api_call: "ITaskFolder:RegisterTask"
+        - path:
+          - api_call: "TaskScheduler:ITaskService:NewTask"
+            with:
+              - return_value: "return"
+                operation: "is"
+                value: 0
+            store:
+              - name: "ppDefinition"
+                as: "task_handle"
+          - api_call: "ITaskFolder:RegisterTaskDefinition"
+            with:
+              - argument: "pDefinition"
+                operation: "is"
+                value: "$(task_handle)"
+    # Scheduled task installation with schtasks.exe
+    scheduled_task_schtasks_cmd:
+      - variant:
+        - path:
+          - api_call: ["CreateProcess[AW]", "CreateProcessInternal[AW]"]
+            with:
+              - argument: "lpCommandLine"
+                operation: "contains"
+                value: ["/c schtasks /create ", "/c schtasks.exe /create "]
+        - path:
+          - api_call: ["CreateProcess[AW]", "CreateProcessInternal[AW]"]
+            with:
+              - argument: "lpApplicationName"
+                operation: "endswith"
+                value: ["schtasks", "schtasks.exe"]
+              - argument: "lpCommandLine"
+                operation: "startswith"
+                value: "/create "
+        - path:
+          - api_call: "ShellExecute(Ex|)[AW]"
+            with:
+              - argument: "lpParameters"
+                operation: "contains"
+                value: ["/c schtasks /create ", "/c schtasks.exe /create "]
+        - path:
+          - api_call: "ShellExecute(Ex|)[AW]"
+            with:
+              - argument: "lpFile"
+                operation: "endswith"
+                value: ["schtasks", "schtasks.exe"]
+              - argument: "lpParameters"
+                operation: "startswith"
+                value: "/create "
+        - path:
+          - api_call: "WinExec"
+            with:
+              - argument: "lpCmdLine"
+                operation: "contains"
+                value: ["schtasks /create ", "schtasks.exe /create "]
+    # Service installation with New-Service powershell command
+    scheduled_task_powershell:
+      - variant:
+        - path:
+          - api_call: ["CreateProcess[AW]", "CreateProcessInternal", "CreateProcessInternalW"]
+            with:
+              - argument: "lpCommandLine"
+                operation: "contains"
+                value: "Register-ScheduledTask "
+        - path:
+          - api_call: "ShellExecute(Ex|)[AW]"
+            with:
+              - argument: "lpParameters"
+                operation: "contains"
+                value: "Register-ScheduledTask "
+        - path:
+          - api_call: "WinExec"
+            with:
+              - argument: "lpCmdLine"
+                operation: "contains"
+                value: "Register-ScheduledTask "
+  condition: scheduled_task_api as sequence or scheduled_task_schtasks_cmd as simple or scheduled_task_powershell as simple
